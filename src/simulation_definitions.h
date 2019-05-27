@@ -33,9 +33,4 @@ typedef struct {
     bool                complete;
 } simulation_param_t;
 
-typedef struct {
-    uint8_t hour;
-    uint8_t minute;
-} atsim_time_t;
-
 #endif //SIMULATION_DEFINITIONS_H

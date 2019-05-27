@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "airport.h"
+#include "flight.h"
 
 void init_queue (flight_queue_t * queue)
 {
@@ -59,11 +60,13 @@ void QueueArrival(airport_t * airport, uint16_t FlightNumber)
     push(&airport->arrivals_queue, FlightNumber);
 }
 
-void EnterRunway(airport_t * airport, uint16_t FlightNumber)
+void EnterRunway(airport_t * airport, flight_t * flight)
 {
-    if (front(&airport->runway_queue) == FlightNumber) {
+    if (front(&airport->runway_queue) == flight->number) {
         pop(&airport->runway_queue);
     }
+
+    flight->state = EN_ROUTE;
 
     airport->runway_busy = true;
 }
@@ -75,16 +78,16 @@ void UpdateAirport(airport_t * airport)
     while (queue_required) {
         queue_required = false;
 
-        if (size(&airport->departures_queue) != 0) {
-            queue_required = true;
-            push(&airport->runway_queue, front(&airport->departures_queue));
-            pop(&airport->departures_queue);
-        }
-
         if (size(&airport->arrivals_queue) != 0) {
             queue_required = true;
             push(&airport->runway_queue, front(&airport->arrivals_queue));
             pop(&airport->arrivals_queue);
+        }
+
+        if (size(&airport->departures_queue) != 0) {
+            queue_required = true;
+            push(&airport->runway_queue, front(&airport->departures_queue));
+            pop(&airport->departures_queue);
         }
 
         airport->runway_busy = false;
