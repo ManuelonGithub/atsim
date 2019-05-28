@@ -11,59 +11,33 @@ bool UpdateFlight(flight_t *flight, uint16_t timer)
     switch (flight->state) {
         case STAND_BY: {
             if (flight->time.scheduled == timer) {
-                // printf("[%d] Flight %d is now begin taxi'd.\n", timer, flight->number);
+//                 printf("[%d:%d] Flight %d is now begin taxi'd.\n", sim_ClockToTime(timer).hour, sim_ClockToTime(timer).minute, flight->number);
                flight->state = DEPARTURE_TAXI;
             }
         } break;
 
         case DEPARTURE_TAXI: {
             if ((flight->time.scheduled + TAXI_DURATION) == timer) {
-                if (RunwayReady(flight->origin, flight->number)) {
-                    EnterRunway(flight->origin, flight->number);
-                    flight->time.departure = timer;
-                    flight->state = EN_ROUTE;
-                    // printf("[%d] Flight %d used the runway and is now En Route.\n", timer, flight->number);
-                }
-                else {
-                    QueueDeparture(flight->origin, flight->number);
-                    flight->state = WAIT_TO_TAKEOFF;
-                    // printf("[%d] Runway is currently busy. Flight %d has been queued to depart.\n", timer, flight->number);
-                }
+                QueueDeparture(flight->origin, flight);
+                flight->state = WAIT_TO_TAKEOFF;
+//                 printf("[%d:%d] Flight %d has finished the departure taxi and has been queued for departure.\n", sim_ClockToTime(timer).hour, sim_ClockToTime(timer).minute, flight->number);
             }
         } break;
 
         case WAIT_TO_TAKEOFF: {
-            if (RunwayReady(flight->origin, flight)) {
-                EnterRunway(flight->origin, flight->number);
-                flight->time.departure = timer;
-                flight->state = EN_ROUTE;
-                // printf("[%d] Flight %d used the runway and is now En Route.\n", timer, flight->number);
-            }
+//            printf("[%d:%d] Flight %d is waiting to depart.\n", sim_ClockToTime(timer).hour, sim_ClockToTime(timer).minute, flight->number);
         } break;
 
         case EN_ROUTE: {
             if ((flight->time.departure + flight->time.flight) == timer) {
-                if (RunwayReady(flight->destination, flight->number)) {
-                    EnterRunway(flight->destination, flight->number);
-                    flight->time.land = timer;
-                    flight->state = ARRIVAL_TAXI;
-                    // printf("[%d] Flight %d has landed.\n", timer, flight->number);
-                }
-                else {
-                    QueueArrival(flight->destination, flight->number);
-                    flight->state = WAIT_TO_LAND;
-                    // printf("[%d] Runway is currently busy. Flight %d has been queued to arrive.\n", timer, flight->number);
-                }
+                QueueArrival(flight->destination, flight);
+                flight->state = WAIT_TO_LAND;
+//                printf("[%d:%d] Flight %d has completed the trip and has been queued for landing.\n", sim_ClockToTime(timer).hour, sim_ClockToTime(timer).minute, flight->number);
             }
         } break;
 
         case WAIT_TO_LAND: {
-            if (RunwayReady(flight->destination, flight->number)) {
-                EnterRunway(flight->destination, flight->number);
-                flight->time.land = timer;
-                flight->state = ARRIVAL_TAXI;
-                // printf("[%d] Flight %d has landed.\n", timer, flight->number);
-            }
+//            printf("[%d:%d] Flight %d is waiting to land.\n", sim_ClockToTime(timer).hour, sim_ClockToTime(timer).minute, flight->number);
         } break;
 
         case ARRIVAL_TAXI: {
@@ -71,7 +45,7 @@ bool UpdateFlight(flight_t *flight, uint16_t timer)
                 flight->time.arrival = timer;
                 OutputFlightLog(flight, timer);
                 flight->state = COMPLETE;
-                // printf("[%d] Flight %d has completed.\n", timer, flight->number);
+//                 printf("[%d:%d] Flight %d has completed.\n", sim_ClockToTime(timer).hour, sim_ClockToTime(timer).minute, flight->number);
             }
         } break;
 

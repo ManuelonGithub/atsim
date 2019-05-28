@@ -30,7 +30,7 @@ airport_t * FindAirport(simulation_param_t *sim, const char *code)
 void ConfigureSimulationData(simulation_param_t *sim, const char *data)
 {
     flight_t * flight = &(sim->flights[sim->flight_count]);
-    char origin_code[ID_LENGTH], dest_code[ID_LENGTH];
+    char origin_code[CODE_STR_SIZE], dest_code[CODE_STR_SIZE];
     atsim_time_t time;
 
     sscanf(data, "%2s %hd %hd %3s %hhd:%hhd %hd %3s", flight->carrier,
@@ -60,11 +60,6 @@ void SortFlights(flight_t *flight, uint16_t flight_count)
             }
         }
     }
-
-    for (int i = 0; i < flight_count-1; i++) {
-        printf("%d, ", flight[i].number);
-    }
-    printf("%d \n", flight[flight_count-1].number);
 }
 
 
@@ -126,7 +121,7 @@ int main(int argc, char ** argv)
                 }
 
                 for (int i = 0; i < sim.airport_count; i++) {
-                    UpdateAirport(&sim.airports[i]);
+                    ManageRunwayQueue(&sim.airports[i], sim.clock);
                 }
 
                 sim.clock++;

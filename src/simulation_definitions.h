@@ -5,7 +5,6 @@
 #ifndef SIMULATION_DEFINITIONS_H
 #define SIMULATION_DEFINITIONS_H
 
-#include "flight.h"
 #include "airport.h"
 
 #define FLIGHT_MAX_COUNT    1000
