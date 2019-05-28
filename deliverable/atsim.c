@@ -166,7 +166,7 @@ void configure_simulation_data(simulation_param_t *sim, const char *data)
      */
 
     flight->state          = STAND_BY;
-
+    
     // The simulation time is converted into its equivalent clock value.
     flight->time.scheduled = sim_TimeToClock(time);
     flight->origin         = find_airport(sim, origin_code);

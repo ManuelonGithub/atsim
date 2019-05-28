@@ -2,19 +2,23 @@
 // Created by Manuel on 2019-05-25.
 //
 
-#ifndef SIMULATION_DEFINITIONS_H
-#define SIMULATION_DEFINITIONS_H
+#ifndef ATSIM_DEFINITIONS_H
+#define ATSIM_DEFINITIONS_H
 
 #include "airport.h"
 
+// Flight and airport count are easily scalable as the simulation requirements
+// grows.
 #define FLIGHT_MAX_COUNT    1000
 #define AIRPORT_MAX_COUNT   100
 
-// X X X X X:X X X = 15
+// Shortest valid flight input looks like this: (X being placeholder characters)
+// X X X X X:X X X
+// = 15 total characters (including whitespace)
 #define FLIGHT_DATA_MIN_SIZE    15
 #define FLIGHT_DATA_MAX_SIZE    100
 
-#define MEM_EQUAL   0
+#define EQ   0
 
 typedef enum {
     READ_FLIGHT_INFO = 0u,
@@ -32,4 +36,4 @@ typedef struct {
     bool                complete;
 } simulation_param_t;
 
-#endif //SIMULATION_DEFINITIONS_H
+#endif //ATSIM_DEFINITIONS_H
