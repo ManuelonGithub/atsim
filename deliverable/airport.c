@@ -35,7 +35,7 @@ void init_airport(airport_t * airport)
  *        [in] flight: flight_t *
  *                   > Pointer to the flight element to be queued.
  */
-void QueueDeparture(airport_t * airport, flight_t * flight)
+void queue_departure(airport_t *airport, flight_t *flight)
 {
     enqueue(&airport->departures_queue, flight);
 }
@@ -50,7 +50,7 @@ void QueueDeparture(airport_t * airport, flight_t * flight)
  *        [in] flight: flight_t *
  *                   > Pointer to the flight element to be queued.
  */
-void QueueArrival(airport_t * airport, flight_t * flight)
+void queue_arrival(airport_t *airport, flight_t *flight)
 {
     enqueue(&airport->arrivals_queue, flight);
 }
@@ -69,7 +69,7 @@ void QueueArrival(airport_t * airport, flight_t * flight)
  *          move to the next state) based on currently queued flights and the
  *          last queueing type made by the airport.
  */
-void ManageRunway(airport_t *airport, uint16_t sim_clock)
+void manage_runway(airport_t *airport, uint16_t sim_clock)
 {
     // Grouping the two queues temporarily to an array allows the queueing
     // of flights to be done with less flow control operations.
@@ -123,7 +123,7 @@ void ManageRunway(airport_t *airport, uint16_t sim_clock)
  *
  *
  */
-bool UpdateFlight(flight_t *flight, uint16_t sim_clock)
+bool update_flight(flight_t *flight, uint16_t sim_clock)
 {
     bool retval = true;
 
@@ -155,7 +155,7 @@ bool UpdateFlight(flight_t *flight, uint16_t sim_clock)
          */
         case DEPARTURE_TAXI: {
             if ((flight->time.scheduled + TAXI_DURATION) == sim_clock) {
-                QueueDeparture(flight->origin, flight);
+                queue_departure(flight->origin, flight);
                 flight->state = WAIT_TO_TAKEOFF;
             }
         } break;
@@ -185,7 +185,7 @@ bool UpdateFlight(flight_t *flight, uint16_t sim_clock)
          */
         case EN_ROUTE: {
             if ((flight->time.departure + flight->time.flight) == sim_clock) {
-                QueueArrival(flight->destination, flight);
+                queue_arrival(flight->destination, flight);
                 flight->state = WAIT_TO_LAND;
             }
         } break;
@@ -216,7 +216,7 @@ bool UpdateFlight(flight_t *flight, uint16_t sim_clock)
         case ARRIVAL_TAXI: {
             if ((flight->time.land + TAXI_DURATION) == sim_clock) {
                 flight->time.arrival = sim_clock;
-                OutputFlightLog(flight, sim_clock);
+                output_flight_log(flight, sim_clock);
                 flight->state = COMPLETE;
             }
         } break;
@@ -243,7 +243,7 @@ bool UpdateFlight(flight_t *flight, uint16_t sim_clock)
  *        [in] sim_clock: uint16_t
  *                      > Current simulation clock tick.
  */
-void OutputFlightLog(flight_t *flight, uint16_t sim_clock)
+void output_flight_log(flight_t *flight, uint16_t sim_clock)
 {
     atsim_time_t CompletionTime, ScheduleTime;
     uint16_t delay;

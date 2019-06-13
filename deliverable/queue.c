@@ -95,4 +95,3 @@ uint32_t size (flight_queue_t * queue)
 {
     return ((queue->tail - queue->head) & FLIGHT_QUEUE_SIZE_MASK);
 }
-

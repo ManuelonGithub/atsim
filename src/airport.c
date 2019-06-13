@@ -1,75 +1,66 @@
-/*
- * File: airport.c
- * Author: Manuel Burnay
- * Date: May 20, 2019
- * Purpose:
- *      This file contains the function bodies that initialize and manage the
- *      airports and flights in the simulation.
- *
+/**
+ * @file    airport.c
+ * @author  Manuel Burnay
+ * @date    May 20, 2019
+ * @details This file contains the function bodies that initialize
+ *          and manage the airports and flights in the simulation.
  */
 
 #include "airport.h"
 
-/*
- * brief: Initializes the queues in the airport and gives a default value for
- *        the last queueing done by the airport.
- *
- * param: [in] airport: airport_t *
- *                    > Pointer to an airport element to be initialized.
+/**
+ * @brief   Initializes the queues in the airport and gives a default value for
+ *          the last queueing done by the airport.
+ * @param   [out] airport: airport_t*
+ *                         -- Pointer to an airport element to be initialized.
  */
 void init_airport(airport_t * airport)
 {
-    init_queue(&airport->runway_queue);
     init_queue(&airport->arrivals_queue);
     init_queue(&airport->departures_queue);
     airport->last_queue_type = DEPARTURE;
 }
 
-/*
- * brief: Wrapper function for enqueueing flights into an airport's
+/**
+ * @brief Wrapper function for enqueueing flights into an airport's
  *        Departure queue.
- *
- * param: [in] airport: airport_t *
- *                    > Pointer to an airport element with the departure queue.
- *
- *        [in] flight: flight_t *
- *                   > Pointer to the flight element to be queued.
+ * @param [out] airport: airport_t *
+ *                       -- Pointer to an airport element
+ *                          with the departure queue.
+ * @param [in] flight: flight_t *
+ *                     -- Pointer to the flight element to be queued.
  */
-void QueueDeparture(airport_t * airport, flight_t * flight)
+void queue_departure(airport_t *airport, flight_t *flight)
 {
     enqueue(&airport->departures_queue, flight);
 }
 
-/*
-  * brief: Wrapper function for enqueueing flights into an airport's
- *         Arrival queue.
- *
- * param: [in] airport: airport_t *
- *                    > Pointer to an airport element with the arrival queue.
- *
- *        [in] flight: flight_t *
- *                   > Pointer to the flight element to be queued.
+/**
+ * @brief   Wrapper function for enqueueing flights into an airport's
+ *          Arrival queue.
+ * @param   [out] airport: airport_t *
+ *                         -- Pointer to an airport element
+ *                            with the arrival queue.
+ * @param   [in] flight: flight_t *
+ *                       -- Pointer to the flight element to be queued.
  */
-void QueueArrival(airport_t * airport, flight_t * flight)
+void queue_arrival(airport_t *airport, flight_t *flight)
 {
     enqueue(&airport->arrivals_queue, flight);
 }
 
-/*
- * brief: Manages the runway of an airport.
- *
- * param: [in] airport: airport_t *
- *                    > Pointer to an airport element to be managed.
- *
- *        [in] sim_clock: uint16_t
- *                      > Current simulation clock tick.
- *
- * details: This the queueing management system of the airport queues.
+/**
+ * @brief   Manages the runway of an airport.
+ * @param   [in, out] airport: airport_t *
+ *                             -- Pointer to an airport element to be managed.
+ * @param   [in] sim_clock: uint16_t
+ *                          -- Current simulation clock tick.
+ * @details This the queueing management system of the airport queues.
  *          It'll pick a flight to enter the runway (i.e. progress /
  *          move to the next state) based on currently queued flights and the
  *          last queueing type made by the airport.
  */
-void ManageRunway(airport_t *airport, uint16_t sim_clock)
+void manage_runway(airport_t *airport, uint16_t sim_clock)
 {
     // Grouping the two queues temporarily to an array allows the queueing
     // of flights to be done with less flow control operations.
@@ -99,31 +90,28 @@ void ManageRunway(airport_t *airport, uint16_t sim_clock)
         if (frontFlight->state == WAIT_TO_TAKEOFF) {
             frontFlight->state = EN_ROUTE;
             frontFlight->time.departure = sim_clock;
+//            printf("[%d] Flight %s%d is now En route\n", sim_clock, frontFlight->carrier, frontFlight->number);
         }
         else if (frontFlight->state == WAIT_TO_LAND) {
             frontFlight->state = ARRIVAL_TAXI;
             frontFlight->time.land = sim_clock;
+//            printf("[%d] Flight %s%d has now landed\n", sim_clock, frontFlight->carrier, frontFlight->number);
         }
 
         airport->last_queue_type = CurrentQueue;
     }
 }
 
-/*
- * brief: Updates the flight's progression in the simulation.
- *
- * param: [in] flight: flight_t *
- *                   > Pointer to the flight element to be updated.
- *
- *        [in] sim_clock: uint16_t
- *                      > Current simulation clock tick.
- *
- *        [out] bool: True if flight still requires to be updated,
- *                    False if not.
- *
- *
+/**
+ * @brief   Updates the flight's progression in the simulation.
+ * @param   [in, out] flight: flight_t *
+ *                            -- Pointer to the flight element to be updated.
+ * @param   [in] sim_clock: uint16_t
+ *                          --  Current simulation clock tick.
+ * @return  bool
+ *          -- True if flight still requires to be updated, False if not.
  */
-bool UpdateFlight(flight_t *flight, uint16_t sim_clock)
+bool update_flight(flight_t *flight, uint16_t sim_clock)
 {
     bool retval = true;
 
@@ -133,13 +121,40 @@ bool UpdateFlight(flight_t *flight, uint16_t sim_clock)
          * The flight's progression will stall here while it's scheduled time
          * hasn't been reach by the simulation yet.
          *
-         * Next State: DEPARTURE_TAXI
+         * Next state #1: WAIT_FOR_PLANE
          * It will transition once the simulation has reached the flight's
-         * scheduled time.
+         * scheduled time but the plane isn't ready to be used.
+         *
+         * Next State #2: DEPARTURE_TAXI
+         * It will transition once the simulation has reached the flight's
+         * scheduled time and the plane is ready to be used.
          */
         case STAND_BY: {
             if (flight->time.scheduled == sim_clock) {
+                if (plane_ready(flight)) {
+                    flight->state = DEPARTURE_TAXI;
+                    flight->time.departure = sim_clock;
+//                    printf("[%d] Flight %s%d is now taxing to depart\n", sim_clock, flight->carrier, flight->number);
+                }
+                else {
+                    flight->state = WAIT_FOR_PLANE;
+//                    printf("[%d] Flight %s%d is now waiting for its plane to be ready\n", sim_clock, flight->carrier, flight->number);
+                }
+            }
+        } break;
+
+        /*
+         * WAIT_FOR_PLANE state
+         * The flight's progression will stall here until the plane assigned
+         * to it is ready to be used for the flight.
+         *
+         * Next State: DEPARTURE_TAXI
+         */
+        case WAIT_FOR_PLANE: {
+            if (plane_ready(flight)) {
                 flight->state = DEPARTURE_TAXI;
+                flight->time.departure = sim_clock;
+//                printf("[%d] Flight %s%d is now taxing to depart\n", sim_clock, flight->carrier, flight->number);
             }
         } break;
 
@@ -154,9 +169,10 @@ bool UpdateFlight(flight_t *flight, uint16_t sim_clock)
          * It will transition once the the taxi procedure period has elapsed.
          */
         case DEPARTURE_TAXI: {
-            if ((flight->time.scheduled + TAXI_DURATION) == sim_clock) {
-                QueueDeparture(flight->origin, flight);
+            if ((flight->time.departure + TAXI_DURATION) == sim_clock) {
+                queue_departure(flight->origin, flight);
                 flight->state = WAIT_TO_TAKEOFF;
+//                printf("[%d] Flight %s%d has queued to depart \n", sim_clock, flight->carrier, flight->number);
             }
         } break;
 
@@ -185,8 +201,9 @@ bool UpdateFlight(flight_t *flight, uint16_t sim_clock)
          */
         case EN_ROUTE: {
             if ((flight->time.departure + flight->time.flight) == sim_clock) {
-                QueueArrival(flight->destination, flight);
+                queue_arrival(flight->destination, flight);
                 flight->state = WAIT_TO_LAND;
+//                printf("[%d] Flight %s%d is now queued to land\n", sim_clock, flight->carrier, flight->number);
             }
         } break;
 
@@ -216,8 +233,12 @@ bool UpdateFlight(flight_t *flight, uint16_t sim_clock)
         case ARRIVAL_TAXI: {
             if ((flight->time.land + TAXI_DURATION) == sim_clock) {
                 flight->time.arrival = sim_clock;
-                OutputFlightLog(flight, sim_clock);
                 flight->state = COMPLETE;
+
+                flight->plane->busy = false;
+                flight->plane->airport = flight->destination;
+                flight->plane->groom = GROOM_DURATION;
+//                printf("[%d] Flight %s%d has completed the arrival taxi\n", sim_clock, flight->carrier, flight->number);
             }
         } break;
 
@@ -234,21 +255,32 @@ bool UpdateFlight(flight_t *flight, uint16_t sim_clock)
     return retval;
 }
 
-/*
- * brief: Outputs the flight log once the flight has finished it's progression.
- *
- *  param: [in] flight: flight_t *
- *                   > Pointer to the flight element to be updated.
- *
- *        [in] sim_clock: uint16_t
- *                      > Current simulation clock tick.
+bool plane_ready(flight_t *flight)
+{
+    bool ready = false;
+    plane_t *plane = flight->plane;
+
+    if (!plane->busy && plane->airport == flight->origin && plane->groom == 0) {
+        plane->busy = true;
+        ready = true;
+    }
+
+    return ready;
+}
+
+/**
+ * @brief   Outputs the flight log once the flight has finished it's progression.
+ * @param   [in] flight: flight_t *
+ *                       -- Pointer to the flight element to be updated.
+ * @param   [in] sim_clock: uint16_t
+ *                          -- Current simulation clock tick.
  */
-void OutputFlightLog(flight_t *flight, uint16_t sim_clock)
+void output_flight_log(flight_t *flight)
 {
     atsim_time_t CompletionTime, ScheduleTime;
     uint16_t delay;
 
-    CompletionTime = sim_ClockToTime(sim_clock);
+    CompletionTime = sim_ClockToTime(flight->time.arrival);
     ScheduleTime = sim_ClockToTime(flight->time.scheduled);
     delay = flight->time.arrival - flight->time.scheduled
             - flight->time.flight - 2*TAXI_DURATION;
@@ -259,37 +291,35 @@ void OutputFlightLog(flight_t *flight, uint16_t sim_clock)
            ScheduleTime.hour, ScheduleTime.minute, delay);
 }
 
-/*
- * brief: Converts the simulation clock into simulation time.
- *
- * param: [in] clock: uint16_t
- *                  > Simulation clock value.
- *        [out] atsim_time_t: struct with the equivalent hour and minute to the
- *                            simulation clock.
- *
- * details: To simplify the simulation's logic, the simulation times inside each
+/**
+ * @brief   Converts the simulation clock into simulation time.
+ * @param   [in] clock: uint16_t
+ *                      -- Simulation clock value.
+ * @details To simplify the simulation's logic, the simulation times inside each
  *          flight are converted into a value that can be incremented easily
  *          without requiring overflow checking.
  *          This function then converts the simulation clock into its equivalent
  *          hour and minute time.
+ * @return  atsim_time_t
+ *          -- struct with the equivalent hour and minute
+ *             to the simulation clock.
  */
 atsim_time_t sim_ClockToTime(uint16_t clock)
 {
     return (atsim_time_t) {.hour = clock / 60, .minute = clock % 60};
 }
 
-/*
- * brief: Converts the simulation time into simulation clock.
- *
- * param: [in] time: atsim_time_t
- *                  > Simulation time data type.
- *        [out] uint32_t: Simulation clock value.
- *
- * details: To simplify the simulation's logic, the simulation times inside each
+/**
+ * @brief   Converts the simulation time into simulation clock.
+ * @param   [in] time: atsim_time_t
+ *                     -- Simulation time data type.
+ * @details To simplify the simulation's logic, the simulation times inside each
  *          flight are converted into a value that can be incremented easily
  *          without requiring overflow checking.
  *          This function then converts the simulation time into its equivalent
  *          simulation clock value.
+ * @return  uint32_t
+ *          -- Simulation clock value.
  */
 uint32_t sim_TimeToClock(atsim_time_t time)
 {

@@ -79,12 +79,12 @@ int main(int argc, char ** argv)
                 for (int i = 0; i < sim.flight_count; i++) {
                     // Only keep simulating while there are still flights
                     // left to update
-                    sim.state = (UpdateFlight(&sim.flights[i], sim.clock)) ?
+                    sim.state = (update_flight(&sim.flights[i], sim.clock)) ?
                             SIMULATE : sim.state;
                 }
 
                 for (int i = 0; i < sim.airport_count; i++) {
-                    ManageRunway(&sim.airports[i], sim.clock);
+                    manage_runway(&sim.airports[i], sim.clock);
                 }
 
                 sim.clock++;
@@ -166,7 +166,7 @@ void configure_simulation_data(simulation_param_t *sim, const char *data)
      */
 
     flight->state          = STAND_BY;
-    
+
     // The simulation time is converted into its equivalent clock value.
     flight->time.scheduled = sim_TimeToClock(time);
     flight->origin         = find_airport(sim, origin_code);

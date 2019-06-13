@@ -32,12 +32,12 @@ typedef struct {
 atsim_time_t sim_ClockToTime(uint16_t clock);
 uint32_t sim_TimeToClock(atsim_time_t time);
 
-bool UpdateFlight (flight_t *flight, uint16_t timer);
-void OutputFlightLog(flight_t *flight, uint16_t timer);
+bool update_flight(flight_t *flight, uint16_t sim_clock);
+void output_flight_log(flight_t *flight, uint16_t sim_clock);
 
 void init_airport(airport_t *airport);
-void QueueDeparture(airport_t * airport, flight_t * flight);
-void QueueArrival(airport_t * airport, flight_t * flight);
-void ManageRunway(airport_t *airport, uint16_t sim_clock);
+void queue_departure(airport_t *airport, flight_t *flight);
+void queue_arrival(airport_t *airport, flight_t *flight);
+void manage_runway(airport_t *airport, uint16_t sim_clock);
 
 #endif // ATSIM_AIRPORT_H
