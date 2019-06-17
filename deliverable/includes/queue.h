@@ -13,6 +13,7 @@
 #define ATSIM_QUEUE_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef enum {
     STAND_BY,
@@ -28,7 +29,6 @@ typedef struct {
     uint16_t scheduled;
     uint16_t flight;
     uint16_t departure;
-    uint16_t land;
     uint16_t arrival;
 } flight_times_t;
 
@@ -38,9 +38,9 @@ typedef struct {
 typedef struct Flight {
     char                carrier[CARRIER_ID_STR_SIZE];
     uint16_t            number;
-    uint16_t            ID;
-    struct Airport *    origin;     // This solves circular dependency
-    struct Airport *    destination;
+    struct Plane*       plane;
+    struct Airport*     origin;     // This solves circular dependency
+    struct Airport*     destination;
     flight_times_t      time;
     flight_states_t     state;
 } flight_t;
@@ -49,14 +49,14 @@ typedef struct Flight {
 #define FLIGHT_QUEUE_SIZE   256u
 #define FLIGHT_QUEUE_SIZE_MASK  FLIGHT_QUEUE_SIZE-1u
 
-typedef struct {
+typedef struct FlightQueue {
     uint32_t    head;
     uint32_t    tail;
-    flight_t *  buffer[FLIGHT_QUEUE_SIZE];
+    flight_t*   buffer[FLIGHT_QUEUE_SIZE];
 } flight_queue_t;
 
 
-typedef enum {
+typedef enum QueueTypes {
     DEPARTURE,
     ARRIVAL,
     QUEUE_TYPES
@@ -68,16 +68,19 @@ typedef enum {
 typedef struct Airport {
     flight_queue_t  departures_queue;
     flight_queue_t  arrivals_queue;
-    flight_queue_t  runway_queue;
     char            code[CODE_STR_SIZE];
     queue_types_t   last_queue_type;
 } airport_t;
 
+typedef struct Plane {
+    airport_t*  airport;
+    uint16_t    groom;
+} plane_t;
 
 void init_queue (flight_queue_t * queue);
 void dequeue(flight_queue_t *queue);
 void enqueue(flight_queue_t *queue, flight_t *flight);
-flight_t * peek(flight_queue_t *queue);
+flight_t* peek(flight_queue_t *queue);
 uint32_t size (flight_queue_t * queue);
 
 #endif //ATSIM_QUEUE_H

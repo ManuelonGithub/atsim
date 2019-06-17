@@ -1,36 +1,33 @@
 # Targets & general dependencies
 PROGRAM = atsim
-HEADERS = airport.h queue.h simulation_definitions.h
-OBJS = atsim.o 
-OBJ_DIR = ./
+SRC_DIR = src
+INC_DIR = includes
 
-# add your additional object files here
-ADD_OBJS = airport.o queue.o
+SRC = $(wildcard $(SRC_DIR)/*.c)
+OBJ = $(SRC:$(SRC_DIR)/.c=.o)
 
 # compilers, linkers, utilities, and flags
 CC = gcc
-CFLAGS = -Wall -g -std=c11
+CFLAGS = -Wall -g -std=c11 -I$(INC_DIR)
 COMPILE = $(CC) $(CFLAGS)
 LINK = $(CC) $(CFLAGS) -o $@ 
 
-# implicit rule to build .o from .c files
-%.o: %.c $(HEADERS)
-	$(COMPILE) -c -o $@ $<
+$%.o: $(SRC_DIR)/%.c
+	$(COMPILE) $< -o $@
 
 .PHONY: all
 
-# explicit rules
 all: $(PROGRAM)
 
-$(PROGRAM): $(OBJS) $(ADD_OBJS)
-	$(LINK) $(OBJS) $(ADD_OBJS)
+$(PROGRAM): $(OBJ) 
+	$(LINK) $(OBJ) 
 
 .PHONY: clean
 
-clean: 
+clean:
 	rm -f *.o
 
 zip:
 	make clean
 	rm -f atsim.zip
-	zip atsim.zip *.c *.h makefile runme.sh
+	zip atsim.zip $(SRC_DIR) $(INC_DIR) makefile runme.sh

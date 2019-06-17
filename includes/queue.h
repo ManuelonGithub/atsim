@@ -17,13 +17,11 @@
 
 typedef enum {
     STAND_BY,
-    WAIT_FOR_PLANE,
     DEPARTURE_TAXI,
     WAIT_TO_TAKEOFF,
     EN_ROUTE,
     WAIT_TO_LAND,
     ARRIVAL_TAXI,
-    GROOM_PLANE,
     COMPLETE
 } flight_states_t;
 
@@ -31,7 +29,6 @@ typedef struct {
     uint16_t scheduled;
     uint16_t flight;
     uint16_t departure;
-    uint16_t land;
     uint16_t arrival;
 } flight_times_t;
 
@@ -77,9 +74,7 @@ typedef struct Airport {
 
 typedef struct Plane {
     airport_t*  airport;
-    bool        busy;
     uint16_t    groom;
-    uint16_t    id;
 } plane_t;
 
 void init_queue (flight_queue_t * queue);

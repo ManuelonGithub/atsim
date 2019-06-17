@@ -1,11 +1,10 @@
-/*
- * File: atsim.c
- * Author: Manuel Burnay
- * Date: May 20, 2019
- * Purpose:
- *      This file contains the main function of the project.
- *      It also contains functions that initialize and configure
- *      the parameters of the simulation.
+/**
+ * @file    atsim.c
+ * @author  Manuel Burnay
+ * @date    May 20, 2019
+ * @details This file contains the main function of the project.
+ *          It also contains functions that initialize and configure
+ *          the parameters of the simulation.
  */
 
 #include <stdio.h>
@@ -19,9 +18,10 @@
 
 const char IN_END[] = "end";
 
-airport_t * find_airport(simulation_param_t *sim, const char *code);
+airport_t* find_airport(simulation_param_t *sim, const char *code);
 void configure_simulation_data(simulation_param_t *sim, const char *data);
 void sort_flights(flight_t *flight, uint16_t flight_count);
+void produce_simulation_results(simulation_param_t *sim);
 
 int main(int argc, char ** argv)
 {
@@ -76,6 +76,12 @@ int main(int argc, char ** argv)
                 // state goes back to SIMULATE
                 sim.state = SIMULATION_COMPLETE;
 
+                for (int i = 0; i < PLANE_MAX_COUNT; i++) {
+                    if (sim.planes[i].groom > 0) {
+                        sim.planes[i].groom--;
+                    }
+                }
+
                 for (int i = 0; i < sim.flight_count; i++) {
                     // Only keep simulating while there are still flights
                     // left to update
@@ -85,6 +91,10 @@ int main(int argc, char ** argv)
 
                 for (int i = 0; i < sim.airport_count; i++) {
                     manage_runway(&sim.airports[i], sim.clock);
+                }
+
+                if (sim.clock == SIMULATION_MAX_TIME) {
+                    sim.state = SIMULATION_COMPLETE;
                 }
 
                 sim.clock++;
@@ -97,6 +107,7 @@ int main(int argc, char ** argv)
              * simulation in the following program loop pass.
              */
             case SIMULATION_COMPLETE: {
+                produce_simulation_results(&sim);
                 sim.complete = true;
             }break;
         }
@@ -104,22 +115,19 @@ int main(int argc, char ** argv)
     return 0;
 }
 
-/*
- * brief: Looks for an airport with a given code, and instantiates an airport
- *        if not found.
- *
- * param:   [in] sim: simulation_param_t *
- *                  > Pointer to simulation parameters data type.
- *                  > uses and alters the array of airports and the
- *                    current airport count in the simulation.
- *
- *          [in] code: const char *
- *                   > Airport code
- *
- *          [out] airport_t *
- *                > pointer to airport element with corresponding code.
+/**
+ * @brief   Looks for an airport with a given code, and instantiates an airport
+ *          if not found.
+ * @param   [in, out] sim: simulation_param_t*
+ *          -- Pointer to simulation parameters data type.
+ *          -- Uses and alters the array of airports and the current airport
+ *             count in the simulation.
+ * @param   [in] code: const char*
+ *          -- Airport code.
+ * @return  airport_t*
+ *          -- pointer to airport element with corresponding code.
  */
-airport_t * find_airport(simulation_param_t *sim, const char *code)
+airport_t* find_airport(simulation_param_t *sim, const char *code)
 {
     int i = 0;
     bool airport_found = false;
@@ -137,26 +145,25 @@ airport_t * find_airport(simulation_param_t *sim, const char *code)
     return &sim->airports[i];
 }
 
-/*
- * brief: Configures the simulation parameters based on the input received
- *        from the console.
- *
- * param:   [in] sim: simulation_param_t *
- *                  > Pointer to simulation parameters data type.
- *                  > uses and alters every element in the simulation
- *                        parameters except state and complete flag.
- *
- *          [in] data: const char *
- *                   > data string received from console.
+/**
+ * @brief   Configures the simulation parameters based on the input received
+ *          from the console.
+ * @param   [in, out] sim: simulation_param_t*
+ *          -- Pointer to simulation parameters data type.
+ *          -- Uses and alters every element in the simulation
+ *             parameters except state and complete flag.
+ * @param   [in] data: const char*
+ *          -- Data string received from console.
  */
 void configure_simulation_data(simulation_param_t *sim, const char *data)
 {
-    flight_t * flight = &(sim->flights[sim->flight_count]);
+    flight_t *flight = &(sim->flights[sim->flight_count]);
     char origin_code[CODE_STR_SIZE], dest_code[CODE_STR_SIZE];
     atsim_time_t time;
+    uint16_t plane_id;
 
     sscanf(data, "%2s %hd %hd %3s %hhd:%hhd %hd %3s", flight->carrier,
-           &flight->number, &flight->ID, origin_code, &time.hour, &time.minute,
+           &flight->number, &plane_id, origin_code, &time.hour, &time.minute,
            &flight->time.flight, dest_code);
 
     /*
@@ -165,12 +172,16 @@ void configure_simulation_data(simulation_param_t *sim, const char *data)
      * responsibility to input valid data into the program.
      */
 
-    flight->state          = STAND_BY;
-
     // The simulation time is converted into its equivalent clock value.
     flight->time.scheduled = sim_TimeToClock(time);
     flight->origin         = find_airport(sim, origin_code);
     flight->destination    = find_airport(sim, dest_code);
+    flight->plane          = &sim->planes[plane_id];
+    flight->state          = STAND_BY;
+
+    if (sim->planes[plane_id].airport == NULL) {
+        sim->planes[plane_id].airport = flight->origin;
+    }
 
     // Set the simulation clock to start at the first departure of the
     // simulation, as to avoid needless loops of the program.
@@ -179,30 +190,21 @@ void configure_simulation_data(simulation_param_t *sim, const char *data)
     sim->flight_count++;
 }
 
-/*
- * brief: Sorts the flight elements in the simulation based on their carrier ID
- *        and their flight number. Utilizes simple bubble sort.
- *
- * param:   [in] flight: flight_t *
- *                    > array of flight data types.
- *
- *          [in] flight_count: uint16_t
- *                           > Count of flights in the simulation.
+/**
+ * @brief   Sorts the flight elements in the simulation based on their
+ *          flight number. Utilizes simple bubble sort.
+ * @param   [in, out] flight: flight_t*
+ *          -- Array of flight data types.
+ * @param   [in] flight_count: uint16_t
+ *          -- Count of flights in the simulation.
  */
 void sort_flights(flight_t *flight, uint16_t flight_count)
 {
     flight_t temp;
-    int carrier_cmp;
 
     for (int i = 0; i < flight_count-1; i++) {
         for (int j = 0; j < flight_count-i-1; j++) {
-            carrier_cmp = memcmp(flight[j].carrier, flight[j+1].carrier,
-                    CARRIER_ID_LENGTH);
-
-            // If the carrier ID is larger than the next element or
-            // If the carrier ID is equal, but the flight number is larger
-            if (carrier_cmp > EQ ||
-                (carrier_cmp == EQ && flight[j].number > flight[j+1].number)) {
+            if (flight[j].number > flight[j+1].number) {
                 temp = flight[j];
                 flight[j] = flight[j + 1];
                 flight[j + 1] = temp;
@@ -211,3 +213,56 @@ void sort_flights(flight_t *flight, uint16_t flight_count)
     }
 }
 
+/**
+ * @brief   Outputs the results of the simulation.
+ * @param   [in, out] sim: simulation_param_t*
+ *          -- Pointer to the simulation parameters.
+ * @details This function will re-sort of the flight elements based on
+ *          their completion time, carrier code, and flight number,
+ *          and afterwards output their results if the flight managed to
+ *          complete during the simulation's time frame.
+ */
+void produce_simulation_results(simulation_param_t *sim)
+{
+    flight_t temp, *flight = sim->flights;
+    int cmp;
+
+    /*
+     * Sort flights based on completion time.
+     * If flights have the same completion time,
+     * it'll sort them by carrier code.
+     * If flights have the same carrier code,
+     * it'll sort them by the flight number.
+     */
+    for (int i = 0; i < sim->flight_count-1; i++) {
+        for (int j = 0; j < sim->flight_count - i - 1; j++) {
+            if (flight[j].time.arrival > flight[j + 1].time.arrival) {
+                temp = flight[j];
+                flight[j] = flight[j + 1];
+                flight[j + 1] = temp;
+            }
+            else if (flight[j].time.arrival == flight[j + 1].time.arrival) {
+                cmp = memcmp(flight[j].carrier, flight[j + 1].carrier,
+                             CARRIER_ID_LENGTH);
+
+                /*
+                 * If the carrier ID is larger than the next element or
+                 * If the carrier ID is equal, but the flight number is larger
+                 */
+                if (cmp > 0 ||
+                    (cmp == 0 && flight[j].number > flight[j + 1].number)) {
+                    temp = flight[j];
+                    flight[j] = flight[j + 1];
+                    flight[j + 1] = temp;
+                }
+            }
+        }
+    }
+
+    // Output after the flight sort.
+    for (int i = 0; i < sim->flight_count; i++) {
+        if (flight[i].state == COMPLETE) {
+            output_flight_log(&flight[i]);
+        }
+    }
+}

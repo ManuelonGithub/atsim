@@ -27,17 +27,24 @@ typedef struct {
     uint8_t minute;
 } atsim_time_t;
 
+
 #define TAXI_DURATION   10u
+
+#define PLANE_GROOM_DURATION  30u
+#define PLANE_ON_AIR          NULL
 
 atsim_time_t sim_ClockToTime(uint16_t clock);
 uint32_t sim_TimeToClock(atsim_time_t time);
 
 bool update_flight(flight_t *flight, uint16_t sim_clock);
-void output_flight_log(flight_t *flight, uint16_t sim_clock);
+void output_flight_log(flight_t *flight);
 
 void init_airport(airport_t *airport);
 void queue_departure(airport_t *airport, flight_t *flight);
 void queue_arrival(airport_t *airport, flight_t *flight);
 void manage_runway(airport_t *airport, uint16_t sim_clock);
+
+bool plane_ready(flight_t *flight);
+
 
 #endif // ATSIM_AIRPORT_H

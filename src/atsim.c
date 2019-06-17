@@ -181,7 +181,6 @@ void configure_simulation_data(simulation_param_t *sim, const char *data)
 
     if (sim->planes[plane_id].airport == NULL) {
         sim->planes[plane_id].airport = flight->origin;
-        sim->planes[plane_id].id = plane_id;
     }
 
     // Set the simulation clock to start at the first departure of the
@@ -214,24 +213,42 @@ void sort_flights(flight_t *flight, uint16_t flight_count)
     }
 }
 
+/**
+ * @brief   Outputs the results of the simulation.
+ * @param   [in, out] sim: simulation_param_t*
+ *          -- Pointer to the simulation parameters.
+ * @details This function will re-sort of the flight elements based on
+ *          their completion time, carrier code, and flight number,
+ *          and afterwards output their results if the flight managed to
+ *          complete during the simulation's time frame.
+ */
 void produce_simulation_results(simulation_param_t *sim)
 {
     flight_t temp, *flight = sim->flights;
     int cmp;
 
+    /*
+     * Sort flights based on completion time.
+     * If flights have the same completion time,
+     * it'll sort them by carrier code.
+     * If flights have the same carrier code,
+     * it'll sort them by the flight number.
+     */
     for (int i = 0; i < sim->flight_count-1; i++) {
         for (int j = 0; j < sim->flight_count - i - 1; j++) {
-            if (flight[j].time.land > flight[j + 1].time.land) {
+            if (flight[j].time.arrival > flight[j + 1].time.arrival) {
                 temp = flight[j];
                 flight[j] = flight[j + 1];
                 flight[j + 1] = temp;
             }
-            else if (flight[j].time.land == flight[j + 1].time.land) {
+            else if (flight[j].time.arrival == flight[j + 1].time.arrival) {
                 cmp = memcmp(flight[j].carrier, flight[j + 1].carrier,
                              CARRIER_ID_LENGTH);
 
-                // If the carrier ID is larger than the next element or
-                // If the carrier ID is equal, but the flight number is larger
+                /*
+                 * If the carrier ID is larger than the next element or
+                 * If the carrier ID is equal, but the flight number is larger
+                 */
                 if (cmp > 0 ||
                     (cmp == 0 && flight[j].number > flight[j + 1].number)) {
                     temp = flight[j];
@@ -242,6 +259,7 @@ void produce_simulation_results(simulation_param_t *sim)
         }
     }
 
+    // Output after the flight sort.
     for (int i = 0; i < sim->flight_count; i++) {
         if (flight[i].state == COMPLETE) {
             output_flight_log(&flight[i]);

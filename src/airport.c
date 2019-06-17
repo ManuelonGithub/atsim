@@ -89,13 +89,12 @@ void manage_runway(airport_t *airport, uint16_t sim_clock)
     if (frontFlight != NULL) {
         if (frontFlight->state == WAIT_TO_TAKEOFF) {
             frontFlight->state = EN_ROUTE;
+            frontFlight->plane->airport = PLANE_ON_AIR;
             frontFlight->time.departure = sim_clock;
-//            printf("[%d] Flight %s%d is now En route\n", sim_clock, frontFlight->carrier, frontFlight->number);
         }
         else if (frontFlight->state == WAIT_TO_LAND) {
             frontFlight->state = ARRIVAL_TAXI;
-            frontFlight->time.land = sim_clock;
-//            printf("[%d] Flight %s%d has now landed\n", sim_clock, frontFlight->carrier, frontFlight->number);
+            frontFlight->time.arrival = sim_clock;
         }
 
         airport->last_queue_type = CurrentQueue;
@@ -121,40 +120,16 @@ bool update_flight(flight_t *flight, uint16_t sim_clock)
          * The flight's progression will stall here while it's scheduled time
          * hasn't been reach by the simulation yet.
          *
-         * Next state #1: WAIT_FOR_PLANE
-         * It will transition once the simulation has reached the flight's
-         * scheduled time but the plane isn't ready to be used.
-         *
          * Next State #2: DEPARTURE_TAXI
          * It will transition once the simulation has reached the flight's
-         * scheduled time and the plane is ready to be used.
+         * scheduled time and its assigned plane is ready to be used.
          */
         case STAND_BY: {
-            if (flight->time.scheduled == sim_clock) {
+            if (flight->time.scheduled <= sim_clock) {
                 if (plane_ready(flight)) {
                     flight->state = DEPARTURE_TAXI;
                     flight->time.departure = sim_clock;
-//                    printf("[%d] Flight %s%d is now taxing to depart\n", sim_clock, flight->carrier, flight->number);
                 }
-                else {
-                    flight->state = WAIT_FOR_PLANE;
-//                    printf("[%d] Flight %s%d is now waiting for its plane to be ready\n", sim_clock, flight->carrier, flight->number);
-                }
-            }
-        } break;
-
-        /*
-         * WAIT_FOR_PLANE state
-         * The flight's progression will stall here until the plane assigned
-         * to it is ready to be used for the flight.
-         *
-         * Next State: DEPARTURE_TAXI
-         */
-        case WAIT_FOR_PLANE: {
-            if (plane_ready(flight)) {
-                flight->state = DEPARTURE_TAXI;
-                flight->time.departure = sim_clock;
-//                printf("[%d] Flight %s%d is now taxing to depart\n", sim_clock, flight->carrier, flight->number);
             }
         } break;
 
@@ -172,7 +147,6 @@ bool update_flight(flight_t *flight, uint16_t sim_clock)
             if ((flight->time.departure + TAXI_DURATION) == sim_clock) {
                 queue_departure(flight->origin, flight);
                 flight->state = WAIT_TO_TAKEOFF;
-//                printf("[%d] Flight %s%d has queued to depart \n", sim_clock, flight->carrier, flight->number);
             }
         } break;
 
@@ -203,7 +177,6 @@ bool update_flight(flight_t *flight, uint16_t sim_clock)
             if ((flight->time.departure + flight->time.flight) == sim_clock) {
                 queue_arrival(flight->destination, flight);
                 flight->state = WAIT_TO_LAND;
-//                printf("[%d] Flight %s%d is now queued to land\n", sim_clock, flight->carrier, flight->number);
             }
         } break;
 
@@ -231,14 +204,12 @@ bool update_flight(flight_t *flight, uint16_t sim_clock)
          * It will transition once the the taxi procedure period has elapsed.
          */
         case ARRIVAL_TAXI: {
-            if ((flight->time.land + TAXI_DURATION) == sim_clock) {
+            if ((flight->time.arrival + TAXI_DURATION) == sim_clock) {
                 flight->time.arrival = sim_clock;
                 flight->state = COMPLETE;
 
-                flight->plane->busy = false;
                 flight->plane->airport = flight->destination;
-                flight->plane->groom = GROOM_DURATION;
-//                printf("[%d] Flight %s%d has completed the arrival taxi\n", sim_clock, flight->carrier, flight->number);
+                flight->plane->groom = PLANE_GROOM_DURATION;
             }
         } break;
 
@@ -255,17 +226,21 @@ bool update_flight(flight_t *flight, uint16_t sim_clock)
     return retval;
 }
 
+/**
+ * @brief   Checks if the plane is ready to be assigned to a flight.
+ * @param   [in] flight: flight_t*
+ *          -- Pointer to the flight that is checking for its plane to be ready.
+ * @details When a flight becomes 'En Route', the plane no longer has an airport
+ *          assigned to it, which is how it's determined whether or not a plane
+ *          is 'busy' with another flight.
+ * @return  bool
+ *          -- True if the plane is ready to be assigned,
+ *             False if not.
+ */
 bool plane_ready(flight_t *flight)
 {
-    bool ready = false;
     plane_t *plane = flight->plane;
-
-    if (!plane->busy && plane->airport == flight->origin && plane->groom == 0) {
-        plane->busy = true;
-        ready = true;
-    }
-
-    return ready;
+    return (plane->airport == flight->origin && plane->groom == 0);
 }
 
 /**

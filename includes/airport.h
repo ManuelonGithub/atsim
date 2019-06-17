@@ -29,7 +29,9 @@ typedef struct {
 
 
 #define TAXI_DURATION   10u
-#define GROOM_DURATION  30u
+
+#define PLANE_GROOM_DURATION  30u
+#define PLANE_ON_AIR          NULL
 
 atsim_time_t sim_ClockToTime(uint16_t clock);
 uint32_t sim_TimeToClock(atsim_time_t time);
