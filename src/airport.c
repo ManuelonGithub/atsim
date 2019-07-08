@@ -23,6 +23,15 @@ bool init_airport(airport_t *airport)
     );
 }
 
+/**
+ * @brief   Deinitializes an airport element.
+ * @param   [out] airport: airport_t*
+ *                         -- Pointer to an airport element to be deinitialized.
+ * @return  [bool]
+ *          -- True if the deinitialization was successfully completed,
+ *          False if mutex destroy calls for either of the airport's queues
+ *          failed.
+ */
 bool deinit_airport(airport_t *airport)
 {
     return (

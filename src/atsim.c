@@ -265,6 +265,18 @@ void sort_flights(flight_t *flight, uint16_t flight_count)
     }
 }
 
+/**
+ * @brief   Airport update thread function.
+ * @param   [in, out] arg: [void *]
+ *          -- Pointer to airport_t element that the thread will update.
+ * @return  [void *]
+ *          -- Will always return NULL.
+ * @details This function uses two barriers:
+ *          one prevents the airports from being updated before all flights
+ *          have gone through their update procedure,
+ *          and the other is to prevent the main thread from updating the
+ *          simulation clock before all airports have been updated.
+ */
 void* airport_thread(void *arg)
 {
     airport_t *airport = arg;

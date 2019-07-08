@@ -14,6 +14,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <pthread.h>
+#include <sys/types.h>
 
 typedef enum {
     STAND_BY,
@@ -53,6 +55,7 @@ typedef struct FlightQueue {
     uint32_t    head;
     uint32_t    tail;
     flight_t*   buffer[FLIGHT_QUEUE_SIZE];
+    pthread_mutex_t mutex;
 } flight_queue_t;
 
 
@@ -70,6 +73,7 @@ typedef struct Airport {
     flight_queue_t  arrivals_queue;
     char            code[CODE_STR_SIZE];
     queue_types_t   last_queue_type;
+    pthread_t       thread;
 } airport_t;
 
 typedef struct Plane {
@@ -77,7 +81,7 @@ typedef struct Plane {
     uint16_t    groom;
 } plane_t;
 
-void init_queue (flight_queue_t * queue);
+int init_queue (flight_queue_t * queue);
 void dequeue(flight_queue_t *queue);
 void enqueue(flight_queue_t *queue, flight_t *flight);
 flight_t* peek(flight_queue_t *queue);

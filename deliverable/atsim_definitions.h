@@ -5,6 +5,8 @@
 #ifndef ATSIM_DEFINITIONS_H
 #define ATSIM_DEFINITIONS_H
 
+#include <pthread.h>
+#include <sys/types.h>
 #include "airport.h"
 
 // Plane, Flight and airport count are easily scalable as the simulation
@@ -31,11 +33,15 @@ typedef struct {
     plane_t             planes[PLANE_MAX_COUNT];
     flight_t            flights[FLIGHT_MAX_COUNT];
     airport_t           airports[AIRPORT_MAX_COUNT];
+    pthread_t           airport_threads[AIRPORT_MAX_COUNT];
+    pthread_barrier_t   airport_start_sync;
+    pthread_barrier_t   airport_end_sync;
     uint16_t            flight_count;
     uint16_t            airport_count;
     uint32_t            clock;
     simulation_states_t state;
     bool                complete;
+    bool                thread_done;
 } simulation_param_t;
 
 #endif //ATSIM_DEFINITIONS_H

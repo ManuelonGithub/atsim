@@ -16,6 +16,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <pthread.h>
+#include <sys/types.h>
 #include "queue.h"
 
 #define EMPTY_QUEUE 0u

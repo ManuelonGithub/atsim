@@ -16,6 +16,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <pthread.h>
+#include <sys/types.h>
 #include "queue.h"
 
 #define EMPTY_QUEUE 0u
@@ -27,7 +29,6 @@ typedef struct {
     uint8_t minute;
 } atsim_time_t;
 
-
 #define TAXI_DURATION   10u
 
 #define PLANE_GROOM_DURATION  30u
@@ -36,13 +37,14 @@ typedef struct {
 atsim_time_t sim_ClockToTime(uint16_t clock);
 uint32_t sim_TimeToClock(atsim_time_t time);
 
-bool update_flight(flight_t *flight, uint16_t sim_clock);
-void output_flight_log(flight_t *flight);
-
-void init_airport(airport_t *airport);
+bool init_airport(airport_t *airport);
+bool deinit_airport(airport_t *airport);
 void queue_departure(airport_t *airport, flight_t *flight);
 void queue_arrival(airport_t *airport, flight_t *flight);
 void manage_runway(airport_t *airport, uint16_t sim_clock);
+
+bool update_flight(flight_t *flight, uint16_t sim_clock);
+void output_flight_log(flight_t *flight);
 
 bool plane_ready(flight_t *flight);
 

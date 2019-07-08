@@ -5,6 +5,8 @@
 #ifndef ATSIM_DEFINITIONS_H
 #define ATSIM_DEFINITIONS_H
 
+#include <pthread.h>
+#include <sys/types.h>
 #include "airport.h"
 
 // Plane, Flight and airport count are easily scalable as the simulation

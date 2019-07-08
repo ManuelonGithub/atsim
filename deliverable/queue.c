@@ -15,10 +15,11 @@
  * @details This flight queue has been implemented as a circular buffer,
  *          which requires the head and tail pointers to be initializes to 0.
  */
-void init_queue (flight_queue_t * queue)
+int init_queue(flight_queue_t * queue)
 {
     queue->tail = 0;
     queue->head = 0;
+    return (pthread_mutex_init(&queue->mutex, NULL));
 }
 
 /**
@@ -32,8 +33,10 @@ void init_queue (flight_queue_t * queue)
  */
 void dequeue(flight_queue_t *queue)
 {
+    pthread_mutex_lock(&queue->mutex);
     queue->head++;
     queue->head &= FLIGHT_QUEUE_SIZE_MASK;
+    pthread_mutex_unlock(&queue->mutex);
 }
 
 /**
@@ -49,9 +52,11 @@ void dequeue(flight_queue_t *queue)
  */
 void enqueue(flight_queue_t *queue, flight_t *flight)
 {
+    pthread_mutex_lock(&queue->mutex);
     queue->buffer[queue->tail] = flight;
     queue->tail++;
     queue->tail &= FLIGHT_QUEUE_SIZE_MASK;
+    pthread_mutex_unlock(&queue->mutex);
 }
 
 /**
@@ -63,7 +68,11 @@ void enqueue(flight_queue_t *queue, flight_t *flight)
  */
 flight_t* peek(flight_queue_t *queue)
 {
-    return queue->buffer[queue->head];
+    pthread_mutex_lock(&queue->mutex);
+    flight_t *flight = queue->buffer[queue->head];
+    pthread_mutex_unlock(&queue->mutex);
+
+    return flight;
 }
 
 /**
@@ -77,7 +86,11 @@ flight_t* peek(flight_queue_t *queue)
  * @return  uint32_t
  *          -- size of the queue.
  */
-uint32_t size (flight_queue_t * queue)
+uint32_t size(flight_queue_t * queue)
 {
-    return ((queue->tail - queue->head) & FLIGHT_QUEUE_SIZE_MASK);
+    pthread_mutex_lock(&queue->mutex);
+    uint32_t size = ((queue->tail - queue->head) & FLIGHT_QUEUE_SIZE_MASK);
+    pthread_mutex_unlock(&queue->mutex);
+
+    return size;
 }

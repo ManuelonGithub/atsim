@@ -14,11 +14,30 @@
  * @param   [out] airport: airport_t*
  *                         -- Pointer to an airport element to be initialized.
  */
-void init_airport(airport_t * airport)
+bool init_airport(airport_t *airport)
 {
-    init_queue(&airport->arrivals_queue);
-    init_queue(&airport->departures_queue);
     airport->last_queue_type = DEPARTURE;
+    return (
+            init_queue(&airport->arrivals_queue) == 0 &&
+            init_queue(&airport->departures_queue) == 0
+    );
+}
+
+/**
+ * @brief   Deinitializes an airport element.
+ * @param   [out] airport: airport_t*
+ *                         -- Pointer to an airport element to be deinitialized.
+ * @return  [bool]
+ *          -- True if the deinitialization was successfully completed,
+ *          False if mutex destroy calls for either of the airport's queues
+ *          failed.
+ */
+bool deinit_airport(airport_t *airport)
+{
+    return (
+            pthread_mutex_destroy(&airport->arrivals_queue.mutex) == 0 &&
+            pthread_mutex_destroy(&airport->departures_queue.mutex) == 0
+    );
 }
 
 /**
