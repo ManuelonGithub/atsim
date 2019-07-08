@@ -25,9 +25,10 @@ $(PROGRAM): $(OBJ)
 .PHONY: clean
 
 clean:
+	make all
 	rm -f *.o
 
 zip:
 	make clean
 	rm -f atsim.zip
-	zip atsim.zip $(SRC_DIR) $(INC_DIR) makefile runme.sh
+	zip atsim.zip -r *

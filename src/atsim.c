@@ -18,21 +18,34 @@
 
 const char IN_END[] = "end";
 
-airport_t* find_airport(simulation_param_t *sim, const char *code);
-void configure_simulation_data(simulation_param_t *sim, const char *data);
+simulation_param_t sim;
+
+airport_t* find_airport(simulation_param_t *sim_param, const char *code);
+void configure_simulation_data(simulation_param_t *sim_param, const char *data);
 void sort_flights(flight_t *flight, uint16_t flight_count);
-void produce_simulation_results(simulation_param_t *sim);
+void produce_simulation_results(simulation_param_t *sim_param);
+void* airport_thread(void *arg);
+
+/* Notes on threading the program:
+ * Unfortunately my solution doesn't easily lend itself to be multi-threaded
+ * as it stands.
+ * The way the system is designed it relies on the flights being updated
+ * sequentially and place on the airport's queue already in order.
+ * In order to be able to thread the flight update, a priority queue with mutex
+ * locks would have to be implemented to replace my existing queue,
+ * and unfortunately I did not have the time to implement it before the
+ * assignment's due date.
+ */
 
 int main(int argc, char ** argv)
 {
     // Initialize the simulation parameters.
-    simulation_param_t sim = {
-            .airport_count = 0,
-            .flight_count  = 0,
-            .clock         = UINT16_MAX,
-            .state         = READ_FLIGHT_INFO,
-            .complete      = false
-    };
+    sim.airport_count = 0;
+    sim.flight_count  = 0,
+    sim.clock         = UINT16_MAX;
+    sim.state         = READ_FLIGHT_INFO;
+    sim.complete      = false;
+    sim.thread_done   = false;
 
     char flight_data[FLIGHT_DATA_MAX_SIZE];
 
@@ -52,9 +65,29 @@ int main(int argc, char ** argv)
                 // Check if the end of the console input has been received
                 if (!memcmp(flight_data, IN_END, sizeof(IN_END)-1)) {
                     sort_flights(sim.flights, sim.flight_count);
+
+                    pthread_barrier_init(
+                            &sim.airport_start_sync,
+                            NULL,
+                            (sim.airport_count+1)
+                    );
+
+                    pthread_barrier_init(
+                            &sim.airport_end_sync,
+                            NULL,
+                            (sim.airport_count+1)
+                    );
+
                     for (int i = 0; i < sim.airport_count; i++) {
                         init_airport(&sim.airports[i]);
+                        pthread_create(
+                                &sim.airport_threads[i],
+                                NULL,
+                                airport_thread,
+                                &sim.airports[i]
+                        );
                     }
+
                     sim.state = SIMULATE;
                 }
                 // Check to see if the input is at least the size of the
@@ -89,13 +122,21 @@ int main(int argc, char ** argv)
                             SIMULATE : sim.state;
                 }
 
-                for (int i = 0; i < sim.airport_count; i++) {
-                    manage_runway(&sim.airports[i], sim.clock);
-                }
-
                 if (sim.clock == SIMULATION_MAX_TIME) {
                     sim.state = SIMULATION_COMPLETE;
                 }
+
+                // Here the airports begin to update themselves concurrently.
+                pthread_barrier_wait(&sim.airport_start_sync);
+
+                sim.thread_done = (sim.state == SIMULATION_COMPLETE);
+
+                /*
+                 * Here all airport updates are synced when they complete.
+                 * It also makes sure all airports perform a check on
+                 * sim.thread_done only after the variable has been written to.
+                 */
+                pthread_barrier_wait(&sim.airport_end_sync);
 
                 sim.clock++;
             } break;
@@ -107,6 +148,14 @@ int main(int argc, char ** argv)
              * simulation in the following program loop pass.
              */
             case SIMULATION_COMPLETE: {
+                for (int i = 0; i < sim.airport_count; i++) {
+                    pthread_join(sim.airport_threads[i], NULL);
+                    deinit_airport(&sim.airports[i]);
+                }
+
+                pthread_barrier_destroy(&sim.airport_start_sync);
+                pthread_barrier_destroy(&sim.airport_end_sync);
+
                 produce_simulation_results(&sim);
                 sim.complete = true;
             }break;
@@ -118,7 +167,7 @@ int main(int argc, char ** argv)
 /**
  * @brief   Looks for an airport with a given code, and instantiates an airport
  *          if not found.
- * @param   [in, out] sim: simulation_param_t*
+ * @param   [in, out] sim_param: simulation_param_t*
  *          -- Pointer to simulation parameters data type.
  *          -- Uses and alters the array of airports and the current airport
  *             count in the simulation.
@@ -127,37 +176,41 @@ int main(int argc, char ** argv)
  * @return  airport_t*
  *          -- pointer to airport element with corresponding code.
  */
-airport_t* find_airport(simulation_param_t *sim, const char *code)
+airport_t* find_airport(simulation_param_t *sim_param, const char *code)
 {
     int i = 0;
     bool airport_found = false;
 
-    while (i < sim->airport_count && !airport_found) {
-        airport_found = !memcmp(sim->airports[i].code, code, CODE_LENGTH);
+    while (i < sim_param->airport_count && !airport_found) {
+        airport_found = !memcmp(sim_param->airports[i].code, code, CODE_LENGTH);
         i += !airport_found;    // only increment if airport wasn't found
     }
 
-    if (i == sim->airport_count) {
-        memcpy(sim->airports[sim->airport_count].code, code, CODE_STR_SIZE);
-        sim->airport_count++;
+    if (i == sim_param->airport_count) {
+        memcpy(
+                sim_param->airports[sim_param->airport_count].code,
+                code,
+                CODE_STR_SIZE
+        );
+        sim_param->airport_count++;
     }
 
-    return &sim->airports[i];
+    return &sim_param->airports[i];
 }
 
 /**
  * @brief   Configures the simulation parameters based on the input received
  *          from the console.
- * @param   [in, out] sim: simulation_param_t*
+ * @param   [in, out] sim_param: simulation_param_t*
  *          -- Pointer to simulation parameters data type.
  *          -- Uses and alters every element in the simulation
  *             parameters except state and complete flag.
  * @param   [in] data: const char*
  *          -- Data string received from console.
  */
-void configure_simulation_data(simulation_param_t *sim, const char *data)
+void configure_simulation_data(simulation_param_t *sim_param, const char *data)
 {
-    flight_t *flight = &(sim->flights[sim->flight_count]);
+    flight_t *flight = &(sim_param->flights[sim_param->flight_count]);
     char origin_code[CODE_STR_SIZE], dest_code[CODE_STR_SIZE];
     atsim_time_t time;
     uint16_t plane_id;
@@ -174,20 +227,19 @@ void configure_simulation_data(simulation_param_t *sim, const char *data)
 
     // The simulation time is converted into its equivalent clock value.
     flight->time.scheduled = sim_TimeToClock(time);
-    flight->origin         = find_airport(sim, origin_code);
-    flight->destination    = find_airport(sim, dest_code);
-    flight->plane          = &sim->planes[plane_id];
-    flight->state          = STAND_BY;
+    flight->origin         = find_airport(sim_param, origin_code);
+    flight->destination    = find_airport(sim_param, dest_code);
+    flight->plane          = &sim_param->planes[plane_id];
 
-    if (sim->planes[plane_id].airport == NULL) {
-        sim->planes[plane_id].airport = flight->origin;
+    if (sim_param->planes[plane_id].airport == NULL) {
+        sim_param->planes[plane_id].airport = flight->origin;
     }
 
     // Set the simulation clock to start at the first departure of the
     // simulation, as to avoid needless loops of the program.
-    sim->clock = (flight->time.scheduled < sim->clock) ?
-                 flight->time.scheduled : sim->clock;
-    sim->flight_count++;
+    sim_param->clock = (flight->time.scheduled < sim_param->clock) ?
+                 flight->time.scheduled : sim_param->clock;
+    sim_param->flight_count++;
 }
 
 /**
@@ -213,18 +265,31 @@ void sort_flights(flight_t *flight, uint16_t flight_count)
     }
 }
 
+void* airport_thread(void *arg)
+{
+    airport_t *airport = arg;
+
+    while (!sim.thread_done ) {
+        pthread_barrier_wait(&sim.airport_start_sync);
+        manage_runway(airport, sim.clock);
+        pthread_barrier_wait(&sim.airport_end_sync);
+    }
+
+    return NULL;
+}
+
 /**
  * @brief   Outputs the results of the simulation.
- * @param   [in, out] sim: simulation_param_t*
+ * @param   [in, out] sim_param: simulation_param_t*
  *          -- Pointer to the simulation parameters.
  * @details This function will re-sort of the flight elements based on
  *          their completion time, carrier code, and flight number,
  *          and afterwards output their results if the flight managed to
  *          complete during the simulation's time frame.
  */
-void produce_simulation_results(simulation_param_t *sim)
+void produce_simulation_results(simulation_param_t *sim_param)
 {
-    flight_t temp, *flight = sim->flights;
+    flight_t temp, *flight = sim_param->flights;
     int cmp;
 
     /*
@@ -234,8 +299,8 @@ void produce_simulation_results(simulation_param_t *sim)
      * If flights have the same carrier code,
      * it'll sort them by the flight number.
      */
-    for (int i = 0; i < sim->flight_count-1; i++) {
-        for (int j = 0; j < sim->flight_count - i - 1; j++) {
+    for (int i = 0; i < sim_param->flight_count-1; i++) {
+        for (int j = 0; j < sim_param->flight_count - i - 1; j++) {
             if (flight[j].time.arrival > flight[j + 1].time.arrival) {
                 temp = flight[j];
                 flight[j] = flight[j + 1];
@@ -260,7 +325,7 @@ void produce_simulation_results(simulation_param_t *sim)
     }
 
     // Output after the flight sort.
-    for (int i = 0; i < sim->flight_count; i++) {
+    for (int i = 0; i < sim_param->flight_count; i++) {
         if (flight[i].state == COMPLETE) {
             output_flight_log(&flight[i]);
         }
